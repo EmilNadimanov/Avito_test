@@ -2,7 +2,7 @@ from django.db import models
 
 
 class ShortLink(models.Model):
-    full_link = models.CharField(max_length=250, default='')  # субъективно - разумный предел для длины URL
+    full_link = models.CharField(max_length=250, default='')  # субъективно разумный предел для URL
     short_link = models.CharField(max_length=25, default='')
     created = models.DateTimeField(auto_now_add=True)  # удобное значение для упорядочения
 
@@ -11,5 +11,3 @@ class ShortLink(models.Model):
 
     class Meta:
         ordering = ['-created']
-
-

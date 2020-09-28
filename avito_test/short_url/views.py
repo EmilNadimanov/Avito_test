@@ -1,23 +1,27 @@
 import datetime
-from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import render, reverse
-from django.views.decorators.csrf import csrf_exempt
 import json
 from random import choices
 import re
 
+from django.http import HttpResponseRedirect, JsonResponse
+from django.shortcuts import render, reverse
+from django.views.decorators.csrf import csrf_exempt
+
 from .models import ShortLink
 
-ALPHABET = [char for char in
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"]  # массив из символов a-zA-Z0-9
+ALPHABET = [char for char in  # массив из символов a-zA-Z0-9
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"]
 WEBSITE_NAME = "http://127.0.0.1:8000/"
 
 
 # функция для генерации коротких представлений ссылок
-# По сути это размещение из 62 по 8 с повторениями, 62^8=218.340.105.584.896 - это 218+ триллионов вероятных комбинаций.
-# Можно было бы сделать похитрее, а-ля "взять хэш SHA256 ссылки, преобразовать в человечкочитаемый формат и взять срез
-# по первым восьми символам", но, принимая во внимание, что в задании не уделяется внимание безопасности, а псевдорандом
-# показал себя неплохо, я остановился на этом. По-хорошему всё должно быть без коллизий
+# По сути это размещение из 62 по 8 с повторениями, 62^8=218.340.105.584.896
+# - это 218+ триллионов вероятных комбинаций. Можно было бы сделать похитрее,
+# а-ля взять хэш SHA256 ссылки, преобразовать в человечкочитаемый формат и
+# взять срез по первым восьми символам, но, принимая во внимание, что в
+# задании не уделяется внимание безопасности, а псевдорандом# показал себя
+# неплохо, я остановился на этом. По-хорошему всё должно быть без коллизий
+
 def url_generator():
     random_sequence = choices(ALPHABET, k=8)
     return WEBSITE_NAME + ''.join(random_sequence)
@@ -27,8 +31,8 @@ def url_generator():
 def query_archive(request):
     # Цикл, чтобы вывести предыдущие запросы, как в bit.ly, но данные берутся по всей БД
     data = []
-    for previous_object in list(ShortLink.objects.values("full_link", "short_link", "created")):
-        data.append(dict(previous_object))
+    for older_obj in list(ShortLink.objects.values("full_link", "short_link", "created")):
+        data.append(dict(older_obj))
     return render(request, "query_archive.html", {"data": data})
 
 
@@ -42,7 +46,7 @@ def home_page(request):
         return render(request, 'base.html')
 
     elif request.method == 'POST':
-        try:  # достаём полную ссылку в зависимости от того, пришёл запрос по HTTP форме из UI или напрямую через json
+        try:  # достаём полную ссылку в зависимости от того, пришёл запрос из UI или через json
             data = json.loads(request.body)
             ui = False
         except json.decoder.JSONDecodeError:
@@ -66,14 +70,15 @@ def home_page(request):
                                            created=data["created"])
         new_obj.save()
 
-        # Если запрос приходил по API, то вернём простой джейсон-респонс, в противном случае нарисуем красивую страничку
+        # Если запрос приходил по API, то вернём простой джейсон-респонс,
+        # в противном случае нарисуем красивую страничку
         if not ui:
             data = []
             # Цикл, чтобы вывести все предыдущие запросы; данные берутся по всей БД
-            for previous_object in list(ShortLink.objects.values("full_link", "short_link", "created")):
-                data.append(previous_object)
+            for older_obj in list(ShortLink.objects.values("full_link", "short_link", "created")):
+                data.append(older_obj)
             return JsonResponse(data, safe=False)
-        else:  # защита от повторного ввода при обновлении страницы
+        else:  # Редирект - защита от повторного ввода при обновлении страницы
             return HttpResponseRedirect(reverse("query_archive"))
     # если что-то пришло не по GET и не по POST, то отрисуем страничку заново
     return render(request, 'base.html')
