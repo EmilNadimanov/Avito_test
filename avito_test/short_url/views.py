@@ -51,6 +51,13 @@ def home_page(request):
         if data["full_link"] == "":  # проверка на пустой ввод
             return render(request, 'base.html')
 
+        # если во входящем запросе не было "http(s)://www.", то поправим это
+        if re.search(r"^(\w+://)?www\..*", data["full_link"]) is None:
+            if re.search(r"^([\w\W]+//).*", data["full_link"]) is None:
+                data["full_link"] = "www." + data["full_link"]
+        if re.search(r"^https?://.*", data["full_link"]) is None:
+            data["full_link"] = "http://" + data["full_link"]
+
         # создаём полноценный объект и сохраняем в БД
         data["short_link"] = url_generator()
         data["created"] = datetime.datetime.now()
@@ -61,13 +68,12 @@ def home_page(request):
 
         # Если запрос приходил по API, то вернём простой джейсон-респонс, в противном случае нарисуем красивую страничку
         if not ui:
-            # Цикл, чтобы вывести предыдущие запросы, как в bit.ly, но данные берутся по всей БД
             data = []
+            # Цикл, чтобы вывести все предыдущие запросы; данные берутся по всей БД
             for previous_object in list(ShortLink.objects.values("full_link", "short_link", "created")):
                 data.append(previous_object)
             return JsonResponse(data, safe=False)
-        else:
-            # защита от повторного ввода при обновлении страницы
+        else:  # защита от повторного ввода при обновлении страницы
             return HttpResponseRedirect(reverse("query_archive"))
     # если что-то пришло не по GET и не по POST, то отрисуем страничку заново
     return render(request, 'base.html')
@@ -79,11 +85,5 @@ def redirect(request, short_link=''):
     """
     if request.method == "GET":  # запросить изначальную ссылку по короткому представлению
         full_link = ShortLink.objects.get(short_link=WEBSITE_NAME + short_link).full_link
-        # если во входящем запрсое не было "http(s)://www.", то поправим это
-        print("before")
-        if re.search(r"^(\w+://)?www\..*", full_link) is None:
-            if re.search(r"^([\w\W]+//).*", full_link) is None:
-                full_link = "www." + full_link
-        if re.search(r"^https?://.*", full_link) is None:
-            full_link = "http://" + full_link
-        return HttpResponseRedirect(full_link)
+
+        return HttpResponseRedirect(full_link)  # перенаправить по изначальной ссылке
