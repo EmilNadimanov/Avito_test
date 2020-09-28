@@ -1,6 +1,6 @@
 import datetime
-from django.http import JsonResponse, HttpResponseRedirect
-from django.shortcuts import render
+from django.http import HttpResponseRedirect, JsonResponse
+from django.shortcuts import render, reverse
 from django.views.decorators.csrf import csrf_exempt
 import json
 from random import choices
@@ -9,18 +9,27 @@ import re
 from .models import ShortLink
 
 ALPHABET = [char for char in
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"] # массив из символов a-zA-Z0-9
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"]  # массив из символов a-zA-Z0-9
 WEBSITE_NAME = "http://127.0.0.1:8000/"
 
+
 # функция для генерации коротких представлений ссылок
-# вариант с простеньким рандомизатором альфавитно-циферной последовательности
-# По сути это размещение из 62 по 8 с повторениями, вероятных комбинаций 62^8=218.340.105.584.896 - это 218+ триллионов
-# Можно было бы сделать похитрее, например, рассчитывать хэш SHA256, декодировать в ASCII и брать срез, но я не заметил
-# преимуществ такого способа, принимая во внимание, что в задании не уделяется внимание безопасности, а псевдорандом
-# показывает себя неплохо
+# По сути это размещение из 62 по 8 с повторениями, 62^8=218.340.105.584.896 - это 218+ триллионов вероятных комбинаций.
+# Можно было бы сделать похитрее, а-ля "взять хэш SHA256 ссылки, преобразовать в человечкочитаемый формат и взять срез
+# по первым восьми символам", но, принимая во внимание, что в задании не уделяется внимание безопасности, а псевдорандом
+# показал себя неплохо, я остановился на этом. По-хорошему всё должно быть без коллизий
 def url_generator():
     random_sequence = choices(ALPHABET, k=8)
     return WEBSITE_NAME + ''.join(random_sequence)
+
+
+# красивая страничка с историей запросов и преобразований
+def query_archive(request):
+    # Цикл, чтобы вывести предыдущие запросы, как в bit.ly, но данные берутся по всей БД
+    data = []
+    for previous_object in list(ShortLink.objects.values("full_link", "short_link", "created")):
+        data.append(dict(previous_object))
+    return render(request, "query_archive.html", {"data": data})
 
 
 @csrf_exempt
@@ -35,8 +44,12 @@ def home_page(request):
     elif request.method == 'POST':
         try:  # достаём полную ссылку в зависимости от того, пришёл запрос по HTTP форме из UI или напрямую через json
             data = json.loads(request.body)
+            ui = False
         except json.decoder.JSONDecodeError:
             data = {"full_link": request.POST["full_link"]}
+            ui = True
+        if data["full_link"] == "":  # проверка на пустой ввод
+            return render(request, 'base.html')
 
         # создаём полноценный объект и сохраняем в БД
         data["short_link"] = url_generator()
@@ -46,11 +59,17 @@ def home_page(request):
                                            created=data["created"])
         new_obj.save()
 
-        # Цикл, чтобы вывести предыдущие запросы, как в bit.ly, но данные берутся по всей БД
-        data = []
-        for previous_object in list(ShortLink.objects.values("full_link", "short_link", "created")):
-            data.append(previous_object)
-        return JsonResponse(data, safe=False)
+        # Если запрос приходил по API, то вернём простой джейсон-респонс, в противном случае нарисуем красивую страничку
+        if not ui:
+            # Цикл, чтобы вывести предыдущие запросы, как в bit.ly, но данные берутся по всей БД
+            data = []
+            for previous_object in list(ShortLink.objects.values("full_link", "short_link", "created")):
+                data.append(previous_object)
+            return JsonResponse(data, safe=False)
+        else:
+            # защита от повторного ввода при обновлении страницы
+            return HttpResponseRedirect(reverse("query_archive"))
+    # если что-то пришло не по GET и не по POST, то отрисуем страничку заново
     return render(request, 'base.html')
 
 
@@ -60,8 +79,11 @@ def redirect(request, short_link=''):
     """
     if request.method == "GET":  # запросить изначальную ссылку по короткому представлению
         full_link = ShortLink.objects.get(short_link=WEBSITE_NAME + short_link).full_link
+        # если во входящем запрсое не было "http(s)://www.", то поправим это
+        print("before")
         if re.search(r"^(\w+://)?www\..*", full_link) is None:
-            full_link = "www." + full_link
+            if re.search(r"^([\w\W]+//).*", full_link) is None:
+                full_link = "www." + full_link
         if re.search(r"^https?://.*", full_link) is None:
             full_link = "http://" + full_link
         return HttpResponseRedirect(full_link)

@@ -8,11 +8,13 @@
 <body>
     <h1> Hello! This is my custom shortener for URLs </h1>
     <p> In order to use it either address the JSON API of this website or use the basic UI below </p>
-    <p> Careful! We do not check whether your link is valid </p>
+    <p> Careful! We do not check whether your link is valid. We just add "http://" and "www." if you don't </p>
 
     <form action="{% url 'home_page' %}" method="post">
         {% csrf_token %}
         <input type="text" name="full_link" placeholder="Shorten your link">
         <button type="submit" > Shorten </button>
     </form>
+    {% block content %}
+    {% endblock content %}
 </body>

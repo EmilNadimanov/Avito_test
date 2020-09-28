@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1> Hello! Feast your eyes upon the links below </h1>
+<pre>
+    {% for json in data %}
+    <h4> {{ json | pprint}} </h4>
+    {% endfor %}
+</pre>
+{% endblock content %}
