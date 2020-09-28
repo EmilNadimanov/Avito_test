@@ -1,0 +1,18 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title> My crappy shortener </title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+</head>
+<body>
+    <h1> Hello! This is my custom shortener for URLs </h1>
+    <p> In order to use it either address the JSON API of this website or use the basic UI below </p>
+    <p> Careful! We do not check whether your link is valid </p>
+
+    <form action="{% url 'home_page' %}" method="post">
+        {% csrf_token %}
+        <input type="text" name="full_link" placeholder="Shorten your link">
+        <button type="submit" > Shorten </button>
+    </form>
+</body>
