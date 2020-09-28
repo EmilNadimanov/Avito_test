@@ -55,7 +55,7 @@ def home_page(request):
         if re.search(r"^(\w+://)?www\..*", data["full_link"]) is None:
             if re.search(r"^([\w\W]+//).*", data["full_link"]) is None:
                 data["full_link"] = "www." + data["full_link"]
-        if re.search(r"^https?://.*", data["full_link"]) is None:
+        if re.search(r"^\w+://.*", data["full_link"]) is None:
             data["full_link"] = "http://" + data["full_link"]
 
         # создаём полноценный объект и сохраняем в БД
